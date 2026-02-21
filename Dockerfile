@@ -49,6 +49,13 @@ RUN pnpm build
 ENV OPENCLAW_PREFER_PNPM=1
 RUN pnpm ui:build
 
+# Install gog CLI (Google Workspace CLI for Calendar, Gmail, Drive, etc.)
+ARG GOG_VERSION=0.11.0
+ARG TARGETARCH=arm64
+RUN curl -fsSL "https://github.com/steipete/gogcli/releases/download/v${GOG_VERSION}/gogcli_${GOG_VERSION}_linux_${TARGETARCH}.tar.gz" \
+    | tar -xz -C /usr/local/bin/ gog \
+    && chmod +x /usr/local/bin/gog
+
 ENV NODE_ENV=production
 
 # Security hardening: Run as non-root user
