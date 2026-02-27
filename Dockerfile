@@ -25,22 +25,6 @@ COPY --chown=node:node scripts ./scripts
 USER node
 RUN pnpm install --frozen-lockfile
 
-# Optionally install Chromium and Xvfb for browser automation.
-# Build with: docker build --build-arg OPENCLAW_INSTALL_BROWSER=1 ...
-# Adds ~300MB but eliminates the 60-90s Playwright install on every container start.
-# Must run after pnpm install so playwright-core is available in node_modules.
-USER root
-ARG OPENCLAW_INSTALL_BROWSER=""
-RUN if [ -n "$OPENCLAW_INSTALL_BROWSER" ]; then \
-  apt-get update && \
-  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb && \
-  mkdir -p /home/node/.cache/ms-playwright && \
-  PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright \
-  node /app/node_modules/playwright-core/cli.js install --with-deps chromium && \
-  chown -R node:node /home/node/.cache/ms-playwright && \
-  apt-get clean && \
-  rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
-  fi
 
 USER node
 COPY --chown=node:node . .
@@ -90,7 +74,21 @@ RUN curl -fsSL "https://github.com/steipete/goplaces/releases/download/v${GOPLAC
   | tar -xz -C /usr/local/bin/ \
   && chmod +x /usr/local/bin/goplaces
 
-# ==========================================
+# 6. Optionally install Chromium and Xvfb for browser automation.
+# Build with: docker compose build --build-arg OPENCLAW_INSTALL_BROWSER=1
+# Adds ~300MB but eliminates the 60-90s Playwright install on every container start.
+# Placed last so it doesn't bust the cache for the slow pnpm build steps above.
+ARG OPENCLAW_INSTALL_BROWSER=""
+RUN if [ -n "$OPENCLAW_INSTALL_BROWSER" ]; then \
+  apt-get update && \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb && \
+  mkdir -p /home/node/.cache/ms-playwright && \
+  PLAYWRIGHT_BROWSERS_PATH=/home/node/.cache/ms-playwright \
+  node /app/node_modules/playwright-core/cli.js install --with-deps chromium && \
+  chown -R node:node /home/node/.cache/ms-playwright && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*; \
+  fi
 
 ENV NODE_ENV=production
 
