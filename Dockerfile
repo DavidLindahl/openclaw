@@ -10,7 +10,7 @@ WORKDIR /app
 RUN chown node:node /app
 
 ARG OPENCLAW_DOCKER_APT_PACKAGES=""
-RUN if [ -n "$OPENCLAW_DOCKER_APT_PACKAGES" ]; then \
+RUN if[ -n "$OPENCLAW_DOCKER_APT_PACKAGES" ]; then \
   apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $OPENCLAW_DOCKER_APT_PACKAGES && \
   apt-get clean && \
@@ -31,7 +31,7 @@ RUN pnpm install --frozen-lockfile
 # Must run after pnpm install so playwright-core is available in node_modules.
 USER root
 ARG OPENCLAW_INSTALL_BROWSER=""
-RUN if [ -n "$OPENCLAW_INSTALL_BROWSER" ]; then \
+RUN if[ -n "$OPENCLAW_INSTALL_BROWSER" ]; then \
   apt-get update && \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb && \
   mkdir -p /home/node/.cache/ms-playwright && \
@@ -49,18 +49,48 @@ RUN pnpm build
 ENV OPENCLAW_PREFER_PNPM=1
 RUN pnpm ui:build
 
-# Install gog CLI (Google Workspace CLI for Calendar, Gmail, Drive, etc.)
+# ==========================================
+# SYSTEM BINARIES & EXTERNAL CLI TOOLS
+# Switch back to root to install global packages
+# ==========================================
+USER root
+
+# 1. Install Media tools (Social Media), Python, and Calendar CLI
+RUN apt-get update && \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+  ffmpeg \
+  imagemagick \
+  python3 \
+  gcalcli \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# 2. Install GitHub CLI (gh) via official apt repository
+RUN mkdir -p -m 755 /etc/apt/keyrings && \
+  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null && \
+  chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg && \
+  echo "deb[arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null && \
+  apt-get update && \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gh && \
+  apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# 3. Install yt-dlp (Standard for downloading social media videos)
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && \
+  chmod a+rx /usr/local/bin/yt-dlp
+
+# 4. Install gog CLI (Google Workspace CLI for Calendar, Gmail, Drive, etc.)
 ARG GOG_VERSION=0.11.0
 ARG TARGETARCH=amd64
 RUN curl -fsSL "https://github.com/steipete/gogcli/releases/download/v${GOG_VERSION}/gogcli_${GOG_VERSION}_linux_${TARGETARCH}.tar.gz" \
   | tar -xz -C /usr/local/bin/ gog \
   && chmod +x /usr/local/bin/gog
 
-# Install goplaces CLI (Google Maps / Places)
+# 5. Install goplaces CLI (Google Maps / Places)
 RUN GOARCH=$([ "$TARGETARCH" = "amd64" ] && echo "x86_64" || echo "arm64") \
   && curl -fsSL "https://github.com/steipete/goplaces/releases/latest/download/goplaces_Linux_${GOARCH}.tar.gz" \
   | tar -xz -C /usr/local/bin/ \
   && chmod +x /usr/local/bin/goplaces
+
+# ==========================================
 
 ENV NODE_ENV=production
 
@@ -74,5 +104,5 @@ USER node
 #
 # For container platforms requiring external health checks:
 #   1. Set OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD env var
-#   2. Override CMD: ["node","openclaw.mjs","gateway","--allow-unconfigured","--bind","lan"]
-CMD ["node", "openclaw.mjs", "gateway", "--allow-unconfigured"]
+#   2. Override CMD:["node","openclaw.mjs","gateway","--allow-unconfigured","--bind","lan"]
+CMD["node", "openclaw.mjs", "gateway", "--allow-unconfigured"]
