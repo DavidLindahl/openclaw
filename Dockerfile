@@ -85,8 +85,8 @@ RUN curl -fsSL "https://github.com/steipete/gogcli/releases/download/v${GOG_VERS
   && chmod +x /usr/local/bin/gog
 
 # 5. Install goplaces CLI (Google Maps / Places)
-RUN GOARCH=$([ "$TARGETARCH" = "amd64" ] && echo "x86_64" || echo "arm64") \
-  && curl -fsSL "https://github.com/steipete/goplaces/releases/latest/download/goplaces_Linux_${GOARCH}.tar.gz" \
+ARG GOPLACES_VERSION=0.3.0
+RUN curl -fsSL "https://github.com/steipete/goplaces/releases/download/v${GOPLACES_VERSION}/goplaces_${GOPLACES_VERSION}_linux_${TARGETARCH}.tar.gz" \
   | tar -xz -C /usr/local/bin/ \
   && chmod +x /usr/local/bin/goplaces
 
